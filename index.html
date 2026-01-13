@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Holiday Tracker</title>
+<link rel="icon" type="image/x-icon'" href="giblin_logo.ico">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --full-day: #10b981; /* Green */
+            --half-day: #f59e0b; /* Orange */
+            --bg: #f3f4f6;
+            --text: #1f2937;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 15px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Compact Dashboard for Mobile */
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr;
+            gap: 10px;
+            align-items: center;
+        }
+
+        label { font-size: 0.85rem; font-weight: 600; color: #64748b; }
+
+        input {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .stats {
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dcfce7;
+        }
+
+        .stats strong { color: var(--primary); font-size: 1.2rem; }
+
+        /* Year Grid */
+        .year-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* Default to 1 column for mobile */
+            gap: 25px;
+        }
+
+        /* Tablet/Desktop Grid */
+        @media (min-width: 600px) {
+            .year-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .month-container {
+            border: 1px solid #f1f5f9;
+            border-radius: 12px;
+            padding: 8px;
+        }
+
+        .month-name {
+            text-align: center;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            text-align: center;
+        }
+
+        .day-header { font-size: 0.7rem; color: #94a3b8; font-weight: bold; padding-bottom: 8px; }
+
+        .day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .day.full { background-color: var(--full-day) !important; color: white; font-weight: bold; }
+        .day.half { background-color: var(--half-day) !important; color: white; font-weight: bold; }
+        .day.today { border: 2px solid var(--primary); color: var(--primary); font-weight: bold; }
+
+        /* Notes Mobile Styles */
+        .notes-section {
+            margin-top: 30px;
+            background: #fff;
+        }
+
+        .note-card {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .note-card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .note-card input {
+            background: white;
+            border: 1px solid #e2e8f0;
+        }
+
+        .footer {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .btn {
+            width: 100%;
+            background: var(--text);
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="dashboard">
+        <div class="input-row">
+            <label>Year</label>
+            <input type="number" id="yearInput" value="2026">
+        </div>
+        <div class="input-row">
+            <label>Allowance (Hrs)</label>
+            <input type="number" id="allowanceInput" value="200">
+        </div>
+        <div class="stats">
+            <div>Used: <strong id="usedDisplay">0</strong> / <span id="totalDisplay">200</span> hrs</div>
+            <div id="remainingDisplay" style="font-size: 0.8rem; margin-top: 4px;"></div>
+        </div>
+    </div>
+
+    <div class="year-grid" id="yearGrid"></div>
+
+    <div class="notes-section">
+        <h3>Holiday Notes</h3>
+        <div id="notesGrid"></div>
+    </div>
+
+    <div class="footer">
+        <button class="btn" onclick="exportToCSV()">Download CSV Report</button>
+    </div>
+</div>
+
+<script>
+    let holidayData = JSON.parse(localStorage.getItem('holidayDataYearly')) || {};
+    const yearInput = document.getElementById('yearInput');
+    const allowanceInput = document.getElementById('allowanceInput');
+    
+    allowanceInput.value = localStorage.getItem('holidayAllowance') || 200;
+    yearInput.value = new Date().getFullYear();
+
+    function save() {
+        localStorage.setItem('holidayDataYearly', JSON.stringify(holidayData));
+        localStorage.setItem('holidayAllowance', allowanceInput.value);
+        updateStats();
+    }
+
+    function updateStats() {
+        let used = 0;
+        const year = yearInput.value;
+        Object.keys(holidayData).forEach(date => {
+            if (date.startsWith(year)) {
+                used += (holidayData[date].type === 'full' ? 9 : 4);
+            }
+        });
+
+        const total = parseFloat(allowanceInput.value) || 0;
+        document.getElementById('usedDisplay').innerText = used;
+        document.getElementById('totalDisplay').innerText = total;
+        
+        const remaining = total - used;
+        const remEl = document.getElementById('remainingDisplay');
+        remEl.innerText = `${remaining} hours remaining`;
+        remEl.style.color = remaining < 0 ? '#ef4444' : '#64748b';
+    }
+
+    function renderYear() {
+        const year = parseInt(yearInput.value);
+        const grid = document.getElementById('yearGrid');
+        grid.innerHTML = '';
+
+        for (let month = 0; month < 12; month++) {
+            const monthDiv = document.createElement('div');
+            monthDiv.className = 'month-container';
+            const name = new Date(year, month).toLocaleString('default', { month: 'long' });
+            monthDiv.innerHTML = `<div class="month-name">${name}</div>`;
+
+            const calGrid = document.createElement('div');
+            calGrid.className = 'calendar-grid';
+
+            ['S','M','T','W','T','F','S'].forEach(d => {
+                const h = document.createElement('div');
+                h.className = 'day-header';
+                h.innerText = d;
+                calGrid.appendChild(h);
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) calGrid.appendChild(Object.assign(document.createElement('div'), {className: 'day empty'}));
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                const dayEl = document.createElement('div');
+                dayEl.className = 'day';
+                dayEl.innerText = i;
+
+                if (holidayData[dateKey]) dayEl.classList.add(holidayData[dateKey].type);
+                if (new Date().toISOString().split('T')[0] === dateKey) dayEl.classList.add('today');
+
+                dayEl.onclick = () => {
+                    if (!holidayData[dateKey]) {
+                        holidayData[dateKey] = { type: 'full', note: '' };
+                    } else if (holidayData[dateKey].type === 'full') {
+                        holidayData[dateKey].type = 'half';
+                    } else {
+                        delete holidayData[dateKey];
+                    }
+                    save();
+                    renderYear();
+                };
+                calGrid.appendChild(dayEl);
+            }
+            monthDiv.appendChild(calGrid);
+            grid.appendChild(monthDiv);
+        }
+        updateStats();
+        renderNotes();
+    }
+
+    function renderNotes() {
+        const notesGrid = document.getElementById('notesGrid');
+        notesGrid.innerHTML = '';
+        const year = yearInput.value;
+
+        Object.keys(holidayData)
+            .filter(d => d.startsWith(year))
+            .sort()
+            .forEach(date => {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                const typeLabel = holidayData[date].type === 'full' ? '9h Full Day' : '4h Half Day';
+                card.innerHTML = `
+                    <div class="note-card-header">
+                        <span>${date}</span>
+                        <span style="color:${holidayData[date].type === 'full' ? 'var(--full-day)' : 'var(--half-day)'}">${typeLabel}</span>
+                    </div>
+                    <input type="text" value="${holidayData[date].note || ''}" 
+                        onchange="updateNote('${date}', this.value)" placeholder="Add a note for this day...">
+                `;
+                notesGrid.appendChild(card);
+            });
+    }
+
+    function updateNote(date, val) {
+        if (holidayData[date]) holidayData[date].note = val;
+        save();
+    }
+
+    function exportToCSV() {
+        const year = yearInput.value;
+        let csv = "Date,Type,Hours,Note\n";
+        Object.keys(holidayData).filter(d => d.startsWith(year)).sort().forEach(date => {
+            const h = holidayData[date].type === 'full' ? 9 : 4;
+            csv += `${date},${holidayData[date].type},${h},"${holidayData[date].note || ''}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `holidays_${year}.csv`; a.click();
+    }
+
+    yearInput.onchange = renderYear;
+    allowanceInput.oninput = save;
+    renderYear();
+</script>
+
+</body>
+</html>
